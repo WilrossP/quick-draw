@@ -1,0 +1,29 @@
+{
+	"name": "project",
+	"version": "0.1.0",
+	"private": true,
+	"main": "server/index.js",
+	"scripts": {
+		"build": "node template/build.js",
+		"dev": "nodemon server/index.js",
+		"start": "node server/index.js"
+	},
+	"dependencies": {
+		"dotenv": "^16.4.5",
+		"express": "^4.19.2",
+		"jquery": "^3.7.1",
+		"multer": "^2.2.0",
+		"node-cron": "^4.6.0",
+		"nodemon": "^3.1.14",
+		"open": "^8.4.2",
+		"semantic-ui-css": "^2.5.0"
+	},
+	"devDependencies": {
+		"playwright-core": "^1.62.1"
+	},
+	"nodemonConfig": {
+		"ignore": [
+			"uploads/*"
+		]
+	}
+}

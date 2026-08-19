@@ -1,0 +1,1 @@
+// Write the logic for your endpoints here, this file is imported in server.js and the router is mounted to /api

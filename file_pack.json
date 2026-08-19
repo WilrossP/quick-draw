@@ -1,0 +1,20 @@
+[
+	{
+		"method": "babel",
+		"out": "public/assets/js/PROJECT/PROJECT.js",
+		"in": [
+			"frontend/js/init.js",
+			"frontend/js/app.js",
+			"frontend/js/state.js",
+			"frontend/js/settings.js",
+			"frontend/js/utils/ajax.js"
+		]
+	},
+    {
+		"method": "styles",
+		"out": "public/assets/css/PROJECT/PROJECT.css",
+		"in": [
+            "frontend/css/styles.css"
+		]
+	}
+]
