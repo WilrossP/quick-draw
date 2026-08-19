@@ -1,20 +1,24 @@
 [
 	{
 		"method": "babel",
-		"out": "public/assets/js/PROJECT/PROJECT.js",
+		"out": "public/assets/js/quick-draw/quick-draw.js",
 		"in": [
 			"frontend/js/init.js",
-			"frontend/js/app.js",
-			"frontend/js/state.js",
 			"frontend/js/settings.js",
-			"frontend/js/utils/ajax.js"
+			"frontend/js/state.js",
+			"frontend/js/utils/ajax.js",
+			"frontend/js/thumbnail.js",
+			"frontend/js/cloudcad.js",
+			"frontend/js/editor.js",
+			"frontend/js/library.js",
+			"frontend/js/app.js"
 		]
 	},
-    {
+	{
 		"method": "styles",
-		"out": "public/assets/css/PROJECT/PROJECT.css",
+		"out": "public/assets/css/quick-draw/quick-draw.css",
 		"in": [
-            "frontend/css/styles.css"
+			"frontend/css/styles.css"
 		]
 	}
 ]

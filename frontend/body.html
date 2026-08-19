@@ -1,3 +1,127 @@
-<div class="main">
-	<p> HELLO WORLD </p>
+<div class="qd-app">
+
+	<!-- Sidebar: search and category filters -->
+	<div class="qd-sidebar">
+
+		<div class="qd-brand">
+			<i class="pencil ruler icon"></i>
+			<div class="qd-brand-text">
+				<div class="qd-brand-title">Quick Draw</div>
+				<div class="qd-brand-sub">Drawing Template Library</div>
+			</div>
+		</div>
+
+		<div class="qd-search">
+			<div class="ui small fluid icon input">
+				<input type="text" id="qd-search" placeholder="Search templates..." autocomplete="off">
+				<i class="search icon"></i>
+			</div>
+			<a class="qd-search-clear" id="qd-search-clear">Clear search</a>
+		</div>
+
+		<div class="qd-nav" id="qd-categories"></div>
+
+		<div class="qd-sidebar-footer">
+			<button class="ui tiny fluid basic inverted button" id="qd-refresh">
+				<i class="sync icon"></i> Rescan Templates
+			</button>
+		</div>
+
+	</div>
+
+	<!-- Main: template grid -->
+	<div class="qd-main">
+
+		<div class="qd-toolbar">
+			<div class="qd-toolbar-text">
+				<h2 class="qd-heading">Drawing Templates</h2>
+				<div class="qd-subheading" id="qd-result-count"></div>
+			</div>
+		</div>
+
+		<div class="qd-grid" id="qd-grid"></div>
+
+	</div>
+
+</div>
+
+<!-- Detail modal -->
+<div class="ui modal qd-modal" id="qd-detail-modal">
+
+	<div class="header" id="qd-detail-title"></div>
+
+	<div class="content">
+		<div class="qd-detail">
+			<div class="qd-detail-preview" id="qd-detail-preview"></div>
+			<div class="qd-detail-stats" id="qd-detail-stats"></div>
+		</div>
+	</div>
+
+	<div class="actions">
+		<button class="ui labeled icon button tiny" id="qd-detail-download">
+			<i class="download icon"></i> Download DXF
+		</button>
+		<button class="ui labeled icon button tiny" id="qd-detail-edit">
+			<i class="pencil icon"></i> Edit Details
+		</button>
+		<button class="ui primary labeled icon button tiny" id="qd-detail-open">
+			<i class="external alternate icon"></i> Open in CloudCAD
+		</button>
+	</div>
+
+</div>
+
+<!-- Edit modal -->
+<div class="ui small modal qd-modal" id="qd-edit-modal">
+
+	<div class="header">Edit Template</div>
+
+	<div class="content">
+		<form class="ui small form">
+
+			<div class="field">
+				<label>Title</label>
+				<input type="text" id="qd-edit-title" placeholder="Template title">
+			</div>
+
+			<div class="field">
+				<label>Categories</label>
+				<div class="ui fluid multiple search selection dropdown">
+					<i class="dropdown icon"></i>
+					<div class="default text">Choose or type a category</div>
+					<select multiple id="qd-edit-categories"></select>
+				</div>
+			</div>
+
+			<div class="field">
+				<label>Tags</label>
+				<div class="ui fluid multiple search selection dropdown">
+					<i class="dropdown icon"></i>
+					<div class="default text">Choose or type a tag</div>
+					<select multiple id="qd-edit-tags"></select>
+				</div>
+			</div>
+
+			<div class="field">
+				<label>Notes</label>
+				<textarea id="qd-edit-description" rows="3" placeholder="What is this template for?"></textarea>
+			</div>
+
+			<div class="field">
+				<label>Source File</label>
+				<div class="qd-edit-file" id="qd-edit-file"></div>
+			</div>
+
+		</form>
+	</div>
+
+	<div class="actions">
+		<button class="ui labeled icon button tiny deny">
+			<i class="remove icon"></i> Cancel
+		</button>
+		<button class="ui primary labeled icon button tiny" id="qd-edit-save">
+			<i class="check icon"></i> Save Changes
+		</button>
+	</div>
+
 </div>

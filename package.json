@@ -1,5 +1,5 @@
 {
-	"name": "project",
+	"name": "quick-draw",
 	"version": "0.1.0",
 	"private": true,
 	"main": "server/index.js",
@@ -25,5 +25,6 @@
 		"ignore": [
 			"uploads/*"
 		]
-	}
+	},
+	"description": "Quick Draw - SkyCiv drawing template library"
 }

@@ -6,19 +6,19 @@
 @endpush
 
 @push('body_scripts')
-    <script src="{{ cached_asset('assets/js/PROJECT/PROJECT.js') }}"></script>
+    <script src="{{ cached_asset('assets/js/quick-draw/quick-draw.js') }}"></script>
 @endpush
 
 {{-- Push dynamic stylesheet into header --}}
 @push('styles')
-	<link href="{{ cached_asset('assets/css/PROJECT/PROJECT.css') }}" rel="stylesheet" type="text/css">
+	<link href="{{ cached_asset('assets/css/quick-draw/quick-draw.css') }}" rel="stylesheet" type="text/css">
 @endpush
 
 {{-- Push Left Main Nav --}}
 @push('main_nav_left')
-    
+
 @endpush
 
 @section('content')
-	<?php include(resource_path('projects/PROJECT/frontend/body.html')); ?>
+	<?php include(resource_path('projects/quick-draw/frontend/body.html')); ?>
 @endsection
