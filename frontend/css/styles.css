@@ -98,6 +98,7 @@
 .qd-search-clear {
 	display: block;
 	margin-top: 8px;
+	text-align: right;
 	font-size: 0.78em;
 	color: #7d8ba3;
 	cursor: pointer;

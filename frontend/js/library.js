@@ -69,7 +69,7 @@ QUICKDRAW.library = (function () {
 
 		let html = '';
 
-		html += categoryItem('all', 'All Templates', templates.length, active, 'th large');
+		html += categoryItem('all', 'All Templates', templates.length, active, 'grid layout');
 		html += categoryItem('personal', 'My Templates', counts.personal, active, 'user outline');
 		html += categoryItem('shared', 'Shared Library', counts.shared, active, 'folder outline');
 		html += categoryItem('favourites', 'Favourites', favourites, active, 'star');
