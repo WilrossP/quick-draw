@@ -18,6 +18,8 @@ const FUNCTIONS = (function () {
 	const publicEntry = (entry) => ({
 		id: entry.id,
 		file: entry.file,
+		owner: entry.owner,
+		writable: entry.writable,
 		title: entry.title,
 		categories: entry.categories,
 		tags: entry.tags,
@@ -31,11 +33,37 @@ const FUNCTIONS = (function () {
 	/**
 	 * The full library plus the categories in use.
 	 */
-	const getLibrary = () => ({
-		templates: library.list().map(publicEntry),
-		categories: library.categories(),
-		cloudcad_ready: !!(config.auth.username && config.auth.key)
-	});
+	const getLibrary = () => {
+
+		const templates = library.list().map(publicEntry);
+
+		return {
+			templates: templates,
+			categories: library.categories(),
+			counts: {
+				personal: templates.filter((t) => t.owner === 'personal').length,
+				shared: templates.filter((t) => t.owner === 'shared').length
+			},
+			user: {
+				label: config.user.label,
+				identified: !!config.user.username
+			},
+			cloudcad_ready: !!(config.auth.username && config.auth.key),
+			// Sent so the frontend never has to hold its own copy of the URL.
+			cloudcad_url: config.cloudcad_url
+		};
+	};
+
+	/**
+	 * Add a drawing to the current user's personal folder.
+	 */
+	const addPersonalTemplate = (original_name, buffer) => {
+		const result = library.addPersonal(original_name, buffer);
+		if (!result.ok) return result;
+		return { ok: true, entry: publicEntry(result.entry) };
+	};
+
+	const removePersonalTemplate = (id) => library.removePersonal(id);
 
 	/**
 	 * One template's metadata, with geometry stats from the parsed drawing.
@@ -149,6 +177,8 @@ const FUNCTIONS = (function () {
 	};
 
 	funcs.getLibrary = getLibrary;
+	funcs.addPersonalTemplate = addPersonalTemplate;
+	funcs.removePersonalTemplate = removePersonalTemplate;
 	funcs.getTemplate = getTemplate;
 	funcs.getPreview = getPreview;
 	funcs.getFile = getFile;

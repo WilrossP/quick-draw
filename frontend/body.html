@@ -4,7 +4,7 @@
 	<div class="qd-sidebar">
 
 		<div class="qd-brand">
-			<i class="pencil ruler icon"></i>
+			<img src="https://platform.skyciv.com/storage/images/logo-pack/SkyCiv_Logo_IconOnly_256px.png" alt="SkyCiv" class="qd-brand-logo">
 			<div class="qd-brand-text">
 				<div class="qd-brand-title">Quick Draw</div>
 				<div class="qd-brand-sub">Drawing Template Library</div>
@@ -36,6 +36,16 @@
 			<div class="qd-toolbar-text">
 				<h2 class="qd-heading">Drawing Templates</h2>
 				<div class="qd-subheading" id="qd-result-count"></div>
+			</div>
+			<div class="qd-toolbar-actions">
+				<button class="ui labeled icon button tiny" id="qd-add-template">
+					<i class="upload icon"></i> Add Template
+				</button>
+				<a class="ui primary labeled icon button tiny qd-new-template" id="qd-new-template" target="_blank" rel="noopener">
+					<i class="plus icon"></i> New Template in CloudCAD
+				</a>
+				<!-- Hidden picker driven by the Add Template button -->
+				<input type="file" id="qd-upload-input" accept=".dxf" class="qd-hidden-input">
 			</div>
 		</div>
 

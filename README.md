@@ -14,16 +14,31 @@ straight off disk, and same-origin once it is running on the platform.
 
 ## Configuration
 
-All optional - Quick Draw runs without any of it. Set in `.env`:
+All optional - Quick Draw runs without any of it. Copy `.env.example` to `.env`
+and fill in what you need:
 
 | Variable | Purpose |
 |---|---|
-| `QUICKDRAW_TEMPLATE_DIR` | Folder scanned for `.dxf` templates. Defaults to the folder holding the project. |
-| `SKYCIV_USERNAME` | SkyCiv API username, for one-click CloudCAD opening. |
-| `SKYCIV_KEY` | SkyCiv API key. |
+| `QUICKDRAW_TEMPLATE_DIR` | Folder scanned for the shared, curated `.dxf` templates. Defaults to the folder holding the project. |
+| `QUICKDRAW_PERSONAL_DIR` | Root folder for per-user personal templates. Defaults to `personal-templates/` in the project. |
+| `SKYCIV_USERNAME` | SkyCiv account email. Used for CloudCAD opening, and identifies the user for **My Templates**. |
+| `SKYCIV_KEY` | SkyCiv API key, from https://platform.skyciv.com/api |
 
 Without API credentials the drawing still converts, and the user is offered the
 converted CloudCAD model and the original DXF to import by hand.
+
+### Enabling "Open in CloudCAD"
+
+1. Copy your username and key from https://platform.skyciv.com/api into `.env`.
+2. Restart the server - `dotenv` only reads `.env` at startup, so a running
+   server will not pick up new credentials and Rescan will not help.
+3. The startup log confirms it. Without credentials it prints a line saying the
+   hand-off will use the download fallback; with them, that line is absent.
+
+Each hand-off spends API credits, since it runs a real
+`session.start` -> `model.create` -> `file.save` call. Drawings land in the
+`quick-draw/` path of your SkyCiv cloud storage, named after the template id, so
+opening the same template twice overwrites rather than piling up copies.
 
 ## How a drawing reaches CloudCAD
 
@@ -53,13 +68,49 @@ dense splines. Circles and arcs survive as real curves in the CloudCAD output
 wherever the transform preserves them, rather than expanding into hundreds of
 straight segments.
 
+## Shared library and My Templates
+
+The library presents two scopes as one list:
+
+| Scope | Folder | Behaviour |
+|---|---|---|
+| **Shared Library** | `QUICKDRAW_TEMPLATE_DIR` | The curated set everyone sees. Read-only - Quick Draw never writes or deletes a drawing here. |
+| **My Templates** | `QUICKDRAW_PERSONAL_DIR/<user>/` | The current user's own drawings. They can add and delete freely. |
+
+The current user is identified by `SKYCIV_USERNAME`, slugified into a folder
+name. With no username set everything falls back to a single `local-user`
+folder, which is fine for local testing but means one shared personal space.
+
+Personal ids carry a `my~` prefix so they can never collide with a shared id -
+the separator cannot occur in a generated slug, which strips everything outside
+`a-z`, `0-9` and the hyphen.
+
+### Creating a new template
+
+1. **New Template in CloudCAD** opens CloudCAD to draw in.
+2. Export the finished drawing as DXF.
+3. **Add Template** uploads it into your personal folder.
+
+Uploads are parsed before they are kept, so a file that is not a readable DXF, or
+has no drawable geometry in it, is rejected rather than sitting in the library as
+a broken card. File names are reduced to a bare safe name, so nothing can be
+written outside your own folder, and an existing drawing is never overwritten -
+a repeat name is numbered instead.
+
 ## Titles and categories
 
 Both are derived from the file name on first scan - keyword rules map
 `isolated-footing.dxf` to **Foundations**, `a3-template.dxf` to **Sheet
-Templates**, and so on. Anything the user edits is written to
-`quick-draw-library.json` as an override. Only overrides are stored, so deleting
-that file resets the library to its derived state without touching a drawing.
+Templates**, and so on. Anything the user edits is stored as an override.
+
+Each scope keeps its own overrides file, so nothing personal ever lands in the
+shared one and two users cannot collide:
+
+- shared: `quick-draw-library.json` beside the project
+- personal: `library.json` inside the user's own folder
+
+Only overrides are stored, so deleting one of those files resets that scope to
+its derived state without touching a drawing.
 
 ## Structure
 
@@ -93,7 +144,9 @@ server/
 
 | Method | Route | Purpose |
 |---|---|---|
-| `GET` | `/api/library` | All templates plus the categories in use |
+| `GET` | `/api/library` | All templates (both scopes) plus the categories in use |
+| `POST` | `/api/personal/templates` | Upload a DXF into the current user's personal folder |
+| `DELETE` | `/api/templates/:id` | Delete one of the user's own drawings. Refuses shared templates |
 | `GET` | `/api/templates/:id` | One template with geometry stats |
 | `POST` | `/api/templates/:id` | Edit title, categories, tags, notes, favourite |
 | `GET` | `/api/templates/:id/preview.svg` | SVG preview (`width`, `height`, `text`) |

@@ -56,10 +56,11 @@
 	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.qd-brand > i.icon {
-	font-size: 1.5em;
-	color: #ffffff;
-	margin: 0;
+.qd-brand-logo {
+	width: 28px;
+	height: 28px;
+	flex: 0 0 auto;
+	object-fit: contain;
 }
 
 .qd-brand-title {
@@ -190,9 +191,57 @@
 	margin-top: 2px;
 }
 
+.qd-toolbar-actions {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.qd-new-template {
+	flex: 0 0 auto;
+}
+
+.qd-hidden-input {
+	display: none;
+}
+
+/* Marks a drawing as the user's own rather than part of the shared set. */
+.qd-owner-badge {
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	background: rgba(21, 29, 43, 0.72);
+	color: #7fd1a6;
+	border-radius: 4px;
+	padding: 4px 7px;
+	font-size: 0.72em;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	line-height: 1;
+}
+
+.qd-owner-badge > i.icon {
+	margin: 0 3px 0 0;
+	font-size: 0.95em;
+}
+
+.qd-delete:hover {
+	background: var(--qd-delete) !important;
+	color: #ffffff !important;
+}
+
+/* Before the library has loaded the button has no href yet, so it is shown as
+   unavailable rather than silently doing nothing. */
+.qd-new-template:not([href]) {
+	opacity: 0.5;
+	pointer-events: none;
+}
+
 .qd-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 	gap: 18px;
 }
 
@@ -291,12 +340,22 @@
 
 .qd-card-actions {
 	display: flex;
-	gap: 6px;
+	gap: 5px;
 	padding: 10px 14px 14px 14px;
 }
 
+/* A personal card carries a fourth (delete) action, so the primary button is
+   kept on one line and the icon buttons are tightened to make room. */
 .qd-card-actions .js-open {
 	flex: 1 1 auto;
+	min-width: 0;
+	white-space: nowrap;
+}
+
+.qd-card-actions .ui.icon.button {
+	flex: 0 0 auto;
+	padding-left: 8px;
+	padding-right: 8px;
 }
 
 /* Loading placeholders */

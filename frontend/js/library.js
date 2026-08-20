@@ -21,6 +21,13 @@ QUICKDRAW.library = (function () {
 			state().set('templates', data.templates);
 			state().set('categories', data.categories);
 			state().set('cloudcad_ready', data.cloudcad_ready);
+			state().set('cloudcad_url', data.cloudcad_url);
+			state().set('counts', data.counts);
+			state().set('user', data.user);
+
+			// The CloudCAD address comes from the server so it is configured in
+			// one place. Until it arrives the button has no href and stays inert.
+			jQuery('#qd-new-template').attr('href', data.cloudcad_url);
 
 			renderSidebar();
 			renderGrid();
@@ -55,6 +62,7 @@ QUICKDRAW.library = (function () {
 
 		const templates = state().get('templates') || [];
 		const categories = state().get('categories') || [];
+		const counts = state().get('counts') || { personal: 0, shared: 0 };
 		const active = state().get('category') || 'all';
 
 		const favourites = templates.filter((t) => t.favourite).length;
@@ -62,6 +70,8 @@ QUICKDRAW.library = (function () {
 		let html = '';
 
 		html += categoryItem('all', 'All Templates', templates.length, active, 'th large');
+		html += categoryItem('personal', 'My Templates', counts.personal, active, 'user outline');
+		html += categoryItem('shared', 'Shared Library', counts.shared, active, 'folder outline');
 		html += categoryItem('favourites', 'Favourites', favourites, active, 'star');
 
 		if (categories.length) {
@@ -126,11 +136,27 @@ QUICKDRAW.library = (function () {
 			return '<span class="ui tiny teal basic label qd-label">' + esc(tag) + '</span>';
 		}).join('');
 
+		const is_personal = template.owner === 'personal';
+
+		// Personal drawings are marked so it is never unclear whether something
+		// is your own work or part of the shared curated set.
+		const owner_badge = is_personal
+			? '<span class="qd-owner-badge"><i class="user outline icon"></i>Mine</span>'
+			: '';
+
+		// Only your own drawings can be deleted - the shared library is read-only.
+		const delete_button = is_personal
+			? '<button class="ui tiny icon button js-delete qd-delete" title="Delete this drawing">' +
+				'<i class="trash alternate outline icon"></i>' +
+				'</button>'
+			: '';
+
 		return '' +
 			'<div class="qd-card" data-id="' + esc(template.id) + '">' +
 
 				'<div class="qd-card-preview js-detail" title="Click to enlarge">' +
 					'<img src="' + preview + '" alt="Preview of ' + esc(template.title) + '" loading="lazy">' +
+					owner_badge +
 					'<button class="qd-favourite js-favourite' + (template.favourite ? ' active' : '') + '" ' +
 						'title="' + (template.favourite ? 'Remove from favourites' : 'Add to favourites') + '">' +
 						'<i class="' + (template.favourite ? 'star' : 'star outline') + ' icon"></i>' +
@@ -153,6 +179,7 @@ QUICKDRAW.library = (function () {
 					'<button class="ui tiny icon button js-download" title="Download the DXF">' +
 						'<i class="download icon"></i>' +
 					'</button>' +
+					delete_button +
 				'</div>' +
 
 			'</div>';
@@ -249,6 +276,19 @@ QUICKDRAW.library = (function () {
 			load();
 		});
 
+		// The link itself opens CloudCAD. This only explains how the finished
+		// drawing gets back into the library, so the button is not a dead end.
+		jQuery(document).on('click', '#qd-new-template', function () {
+
+			if (!jQuery(this).attr('href')) return;
+
+			SKYCIV_UTILS.alert.sideNotify({
+				title: 'Opening CloudCAD',
+				content: 'Draw your template, export it as DXF, then use Add Template to put it in your own My Templates folder.',
+				type: 'info'
+			});
+		});
+
 		// Card actions
 		jQuery(document).on('click', '.qd-card .js-detail', function () {
 			openDetail(jQuery(this).closest('.qd-card').data('id'));
@@ -267,6 +307,21 @@ QUICKDRAW.library = (function () {
 		jQuery(document).on('click', '.qd-card .js-download', function (event) {
 			event.stopPropagation();
 			download(jQuery(this).closest('.qd-card').data('id'));
+		});
+
+		// Add a drawing to the personal folder. The button just opens the file
+		// picker; the upload runs when a file is chosen.
+		jQuery(document).on('click', '#qd-add-template', () => {
+			jQuery('#qd-upload-input').val('').trigger('click');
+		});
+
+		jQuery(document).on('change', '#qd-upload-input', function () {
+			if (this.files && this.files.length) addPersonal(this.files[0]);
+		});
+
+		jQuery(document).on('click', '.qd-card .js-delete', function (event) {
+			event.stopPropagation();
+			confirmDelete(jQuery(this).closest('.qd-card').data('id'));
 		});
 
 		jQuery(document).on('click', '.qd-card .js-favourite', function (event) {
@@ -294,6 +349,86 @@ QUICKDRAW.library = (function () {
 
 	const download = (id) => {
 		window.open(QUICKDRAW.ajax.url('/api/templates/' + encodeURIComponent(id) + '/download'), '_blank');
+	};
+
+	/* -------------------------------------------------- *
+	 * Personal templates
+	 * -------------------------------------------------- */
+
+	/**
+	 * Upload a DXF into the current user's personal folder.
+	 */
+	const addPersonal = (file) => {
+
+		const button = jQuery('#qd-add-template');
+		button.addClass('loading disabled');
+
+		const form_data = new FormData();
+		form_data.append('drawing', file);
+
+		QUICKDRAW.ajax.upload('/api/personal/templates', form_data).then((entry) => {
+
+			SKYCIV_UTILS.alert.sideNotify({
+				title: 'Template added',
+				content: entry.title + ' is now in your personal templates.',
+				type: 'success'
+			});
+
+			// Reload so the new drawing, its category and the counts all appear.
+			return load().then(() => {
+				state().set('category', 'personal');
+				renderSidebar();
+				renderGrid();
+			});
+
+		}).catch((error) => {
+
+			SKYCIV_UTILS.alert({
+				title: 'Could not add that drawing',
+				content: error.message,
+				showClose: true
+			});
+
+		}).then(() => {
+			button.removeClass('loading disabled');
+		});
+	};
+
+	/**
+	 * Delete one of the user's own drawings. Confirmed first, because it removes
+	 * the file from disk.
+	 */
+	const confirmDelete = (id) => {
+
+		const template = state().findTemplate(id);
+		if (!template) return;
+
+		SKYCIV_UTILS.alert({
+			title: 'Delete this drawing?',
+			content: '<p><b>' + esc(template.title) + '</b> (' + esc(template.file) + ') will be ' +
+				'permanently deleted from your personal templates.</p>' +
+				'<p>This cannot be undone.</p>',
+			buttons: {
+				'Delete': function () {
+					QUICKDRAW.ajax.del('/api/templates/' + encodeURIComponent(id)).then(() => {
+						SKYCIV_UTILS.alert.sideNotify({
+							title: 'Template deleted',
+							content: template.title + ' has been removed.',
+							type: 'success'
+						});
+						load();
+					}).catch((error) => {
+						SKYCIV_UTILS.alert.sideNotify({
+							title: 'Could not delete',
+							content: error.message,
+							type: 'error'
+						});
+					});
+				}
+			},
+			showClose: true,
+			closeName: 'Cancel'
+		});
 	};
 
 	funcs.load = load;

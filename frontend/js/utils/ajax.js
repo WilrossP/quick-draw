@@ -49,6 +49,40 @@ QUICKDRAW.ajax = (function () {
 
 	const get = (endpoint) => request('GET', endpoint);
 	const post = (endpoint, payload) => request('POST', endpoint, payload);
+	const del = (endpoint) => request('DELETE', endpoint);
+
+	/**
+	 * Send a file as multipart form data. jQuery must be told not to touch the
+	 * body or the Content-Type, so the browser can set the multipart boundary.
+	 */
+	const upload = (endpoint, form_data) => {
+
+		return new Promise((resolve, reject) => {
+
+			jQuery.ajax({
+				url: url(endpoint),
+				type: 'POST',
+				data: form_data,
+				processData: false,
+				contentType: false,
+				dataType: 'json'
+			}).done((response) => {
+
+				if (response && response.success) {
+					resolve(response.data);
+					return;
+				}
+
+				reject(new Error(response && response.message ? response.message : 'The upload failed'));
+
+			}).fail((xhr) => {
+
+				let message = 'The upload failed';
+				if (xhr.responseJSON && xhr.responseJSON.message) message = xhr.responseJSON.message;
+				reject(new Error(message));
+			});
+		});
+	};
 
 	/**
 	 * Fetch a resource as plain text rather than through the JSON envelope -
@@ -70,6 +104,8 @@ QUICKDRAW.ajax = (function () {
 	funcs.url = url;
 	funcs.get = get;
 	funcs.post = post;
+	funcs.del = del;
+	funcs.upload = upload;
 	funcs.getText = getText;
 
 	return funcs;

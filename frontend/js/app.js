@@ -10,4 +10,9 @@ jQuery(document).ready(() => {
 	jQuery('#qd-edit-modal').modal({ observeChanges: true, closable: true });
 
 	QUICKDRAW.library.load();
+
+	//TODO BACKEND CANNOT HANDLE _DEVTOKEN GETTING SENT IN REQUEST
+	jQuery.ajaxSetup({
+	      data:""
+	});
 });

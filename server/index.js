@@ -34,7 +34,11 @@ app.use(buildRouter());
 const port = 4000;
 app.listen(port, () => {
 	console.log('Quick Draw server running at http://localhost:' + port);
-	console.log('Drawing templates:', config.template_dir);
+	console.log('Shared templates:', config.template_dir);
+	console.log('Personal templates:', config.personal_dir, '(user: ' + config.user.slug + ')');
+	if (!config.user.username) {
+		console.log('No SKYCIV_USERNAME set - personal drawings go to the shared "local-user" folder.');
+	}
 	if (!config.auth.username || !config.auth.key) {
 		console.log('No SKYCIV_USERNAME / SKYCIV_KEY set - CloudCAD hand-off will use the download fallback.');
 	}

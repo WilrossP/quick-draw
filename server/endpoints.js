@@ -3,12 +3,21 @@
 'use strict';
 
 const express = require('express');
+const multer = require('multer');
 
+const config = require('./utils/config');
 const functions = require('./functions');
 
 module.exports = function buildRouter() {
 
 	const router = express.Router();
+
+	// Uploaded drawings are held in memory and validated before anything is
+	// written, so a bad file never lands in the user's folder.
+	const upload = multer({
+		storage: multer.memoryStorage(),
+		limits: { fileSize: config.upload.max_bytes, files: 1 }
+	});
 
 	// Wrap a handler so a thrown error becomes a clean JSON response rather than
 	// an unhandled rejection.
@@ -33,6 +42,35 @@ module.exports = function buildRouter() {
 	// The whole library: templates plus the categories in use.
 	router.get('/api/library', guard(async (req, res) => {
 		res.json({ success: true, data: functions.getLibrary() });
+	}));
+
+	// Add a drawing to the current user's personal folder.
+	router.post('/api/personal/templates', upload.single('drawing'), guard(async (req, res) => {
+
+		if (!req.file) {
+			return res.status(400).json({ success: false, message: 'No drawing was uploaded.' });
+		}
+
+		const result = functions.addPersonalTemplate(req.file.originalname, req.file.buffer);
+
+		if (!result.ok) {
+			return res.status(400).json({ success: false, message: result.message });
+		}
+
+		res.json({ success: true, data: result.entry });
+	}));
+
+	// Remove one of the current user's own drawings. Shared templates are
+	// read-only and are refused here.
+	router.delete('/api/templates/:id', guard(async (req, res) => {
+
+		const result = functions.removePersonalTemplate(req.params.id);
+
+		if (!result.ok) {
+			return res.status(400).json({ success: false, message: result.message });
+		}
+
+		res.json({ success: true, data: result });
 	}));
 
 	// A single template with its geometry stats.
@@ -98,6 +136,23 @@ module.exports = function buildRouter() {
 		if (!result) return notFound(res);
 		res.json({ success: true, data: result });
 	}));
+
+	// Upload rejections are raised by multer before any handler runs, so they
+	// are turned into the same JSON shape as everything else here.
+	router.use((err, req, res, next) => {
+		if (!err) return next();
+
+		if (err instanceof multer.MulterError) {
+			const message = err.code === 'LIMIT_FILE_SIZE'
+				? 'That drawing is larger than the ' +
+					Math.round(config.upload.max_bytes / 1024 / 1024) + ' MB limit.'
+				: 'That upload was rejected (' + err.code + ').';
+			return res.status(400).json({ success: false, message: message });
+		}
+
+		console.error('[quick-draw]', req.method, req.path, err);
+		res.status(500).json({ success: false, message: err.message });
+	});
 
 	return router;
 

@@ -28,11 +28,17 @@ QUICKDRAW.state = (function () {
 		const category = get('category');
 		const search = (get('search') || '').toLowerCase().trim();
 
+		// The sidebar is a single-selection list, so one key covers the built-in
+		// views (all, favourites, personal, shared) and the category names.
+		const BUILT_IN = ['all', 'favourites', 'personal', 'shared'];
+
 		return templates.filter((template) => {
 
 			if (category === 'favourites' && !template.favourite) return false;
+			if (category === 'personal' && template.owner !== 'personal') return false;
+			if (category === 'shared' && template.owner !== 'shared') return false;
 
-			if (category && category !== 'all' && category !== 'favourites') {
+			if (category && BUILT_IN.indexOf(category) === -1) {
 				if (template.categories.indexOf(category) === -1) return false;
 			}
 

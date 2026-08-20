@@ -6,8 +6,7 @@
 //   - The canvas is dark, so text colour must stay light.
 
 'use strict';
-
-const https = require('https');
+const skyciv = require('./skyciv-api.js')
 const config = require('./config');
 
 const CLOUDCAD_CONVERT = (function () {
@@ -273,6 +272,7 @@ const CLOUDCAD_CONVERT = (function () {
 
 			const payload = JSON.stringify({
 				auth: { username: config.auth.username, key: config.auth.key },
+				options: { validate_input: true },
 				functions: [
 					{ function: 'S3D.session.start', arguments: { keep_open: false } },
 					{ function: 'cloudcad.model.create', arguments: { cad_data: cad_data } },
@@ -287,51 +287,42 @@ const CLOUDCAD_CONVERT = (function () {
 				]
 			});
 
-			const req = https.request({
-				host: config.api.host,
-				path: config.api.path,
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Content-Length': Buffer.byteLength(payload)
+			skyciv.request(payload, (parsed) => {
+				if (typeof parsed == "string") parsed = JSON.parse(parsed)
+				const envelope = parsed.response || {};
+				const results = Array.isArray(parsed.functions) ? parsed.functions : [];
+				const save = results.length ? results[results.length - 1] : null;
+
+				// status 0 is success, anything else puts the reason in msg -
+				// most often that the credentials did not authenticate.
+				if (envelope.status !== 0) {
+					resolve({
+						ok: false,
+						reason: 'api-error',
+						detail: envelope.msg || 'The SkyCiv API rejected the request.'
+					});
+					return;
 				}
-			}, (res) => {
 
-				let body = '';
-				res.on('data', (chunk) => { body += chunk; });
+				const url = save && save.data ? save.data : envelope.data;
 
-				res.on('end', () => {
+				if (typeof url === 'string' && url.indexOf('http') === 0) {
+					resolve({
+						ok: true,
+						url: url,
+						public_link: save && save.public_link ? save.public_link : null
+					});
+					return;
+				}
 
-					let parsed = null;
-					try {
-						parsed = JSON.parse(body);
-					} catch (e) {
-						parsed = null;
-					}
-
-					if (!parsed) {
-						resolve({ ok: false, reason: 'bad-response', detail: body.slice(0, 400) });
-						return;
-					}
-
-					// The save result comes back keyed by function name.
-					const save = parsed['cloudcad.file.save'] || parsed[2] || null;
-
-					if (save && save.data) {
-						resolve({ ok: true, url: save.data, public_link: save.public_link || null });
-					} else {
-						resolve({ ok: false, reason: 'api-error', detail: parsed });
-					}
+				resolve({
+					ok: false,
+					reason: 'no-link',
+					detail: envelope.msg || 'The drawing saved but no CloudCAD link came back.'
 				});
 			});
-
-			req.on('error', (err) => {
-				resolve({ ok: false, reason: 'network', detail: String(err.message) });
-			});
-
-			req.write(payload);
-			req.end();
 		});
+
 	};
 
 	funcs.build = build;
