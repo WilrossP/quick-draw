@@ -24,12 +24,45 @@ const CLOUDCAD_CONVERT = (function () {
 
 	const round = (n) => Math.round(n * 1000) / 1000;
 
+	// How many mm one unit of the source drawing is worth. CloudCAD stores real
+	// mm internally regardless of the display unit, so this is the only place a
+	// scale factor is ever applied.
+	const MM_PER_UNIT = {
+		unitless: 1, mm: 1, cm: 10, m: 1000,
+		in: 25.4, inch: 25.4, inches: 25.4,
+		ft: 304.8, foot: 304.8, feet: 304.8,
+		yd: 914.4
+	};
+
+	// Keeps a very small label from collapsing to nothing. Small-text drawings
+	// (an A3 title block's text is only ~1.3mm) need the extra decimals - at
+	// three the rounding alone was a few percent out.
+	const MIN_TEXT_SIZE = 0.001;
+
+	// Convert a real text height in mm into CloudCAD's `size` scalar, using the
+	// same ratio CloudCAD's own DXF importer applies.
+	const textSize = (height_mm) => {
+		const size = height_mm * config.dxf_import.text_size_per_mm;
+		if (!isFinite(size) || size <= 0) return MIN_TEXT_SIZE;
+		return Math.max(MIN_TEXT_SIZE, Math.round(size * 10000) / 10000);
+	};
+
+	const unitScale = (units) => {
+		const scale = MM_PER_UNIT[String(units || 'mm').toLowerCase()];
+		if (!scale) {
+			console.warn('[quick-draw] unknown source unit "' + units + '", treating as mm');
+			return 1;
+		}
+		return scale;
+	};
+
 	// Annotation sizes are driven by the drawing extent, per the CloudCAD sizing
 	// guidance - a fixed value looks wrong at every scale but the one it was
 	// picked for.
-	const buildAttributeStyle = (bbox) => {
+	const buildAttributeStyle = (bbox, scale) => {
 
-		const span = Math.max(bbox.width, bbox.height) || 1000;
+		// Span in real mm, so annotation sizes stay right whatever the source unit.
+		const span = (Math.max(bbox.width, bbox.height) || 1000) * scale;
 		const text_size = Math.max(2, Math.round(span / 60));
 		const arrow = Math.max(1, Math.round(text_size * 0.6));
 
@@ -77,6 +110,15 @@ const CLOUDCAD_CONVERT = (function () {
 
 	/**
 	 * Build a full cad_data object from a flattened DXF.
+	 *
+	 * This mirrors CloudCAD's own DXF import options: the result always replaces
+	 * the canvas rather than adding to it (a fresh model is created every time,
+	 * and nothing is ever opened into the session first), and dimensions are left
+	 * out unless `config.dxf_import.dimensions` is switched on. DXF dimensions can
+	 * only come across as dumb line-work and text, not as editable CloudCAD
+	 * dimension entities, so importing them just leaves clutter that has to be
+	 * deleted before the drawing can be dimensioned properly.
+	 *
 	 * @param {Object} flat - output of dxf-flatten.run
 	 * @param {Object} meta - { title }
 	 */
@@ -91,8 +133,19 @@ const CLOUDCAD_CONVERT = (function () {
 		const hatches = [];
 		const layer_map = {};
 
-		// CloudCAD y is inverted relative to DXF.
-		const P = (x, y) => ({ x: round(x), y: round(-y) });
+		const options = config.dxf_import;
+		const skip_dimensions = !options.dimensions;
+		const scale = unitScale(options.source_units);
+		const shift_x = options.shift_x;
+		const shift_y = options.shift_y;
+
+		// Source units and shift first, then the y flip - CloudCAD y points down
+		// where DXF y points up. The shift is applied in the drawing's own sense,
+		// so a positive shift_y moves content up as it would in the DXF.
+		const P = (x, y) => ({
+			x: round(x * scale + shift_x),
+			y: round(-(y * scale + shift_y))
+		});
 
 		const assignLayer = (name, type, id, color) => {
 			const key = name || '0';
@@ -114,6 +167,11 @@ const CLOUDCAD_CONVERT = (function () {
 
 		flat.primitives.forEach((p) => {
 
+			// Dimension line-work, dropped the same way CloudCAD's import dialog
+			// drops it when "Dimensions" is left unchecked. The count is already
+			// on flat.stats.dimension_primitives for the caller's summary.
+			if (p.dim && skip_dimensions) return;
+
 			if (p.k === 'poly') {
 
 				// A true circle or arc survives as a curve rather than dozens of
@@ -123,7 +181,7 @@ const CLOUDCAD_CONVERT = (function () {
 					polylines.push({
 						type: 'circle',
 						center: P(p.curve.cx, p.curve.cy),
-						radius: round(p.curve.r),
+						radius: round(p.curve.r * scale),
 						radiusPoint: P(p.curve.cx + p.curve.r, p.curve.cy),
 						segments: 100,
 						id: id
@@ -175,7 +233,9 @@ const CLOUDCAD_CONVERT = (function () {
 				texts.push({
 					position: P(p.x, p.y),
 					text: p.text,
-					size: 14,
+					// The DXF's own text height, carried through the same unit
+					// scale as the geometry so labels stay true to the drawing.
+					size: textSize(p.h * scale),
 					color: p.color,
 					backgroundColor: '#000000',
 					backgroundColorOpacity: 0,
@@ -225,7 +285,7 @@ const CLOUDCAD_CONVERT = (function () {
 				canvasLengthUnits: 'mm',
 				displayColorByLayers: false
 			},
-			attributeStyles: [buildAttributeStyle(flat.bbox)],
+			attributeStyles: [buildAttributeStyle(flat.bbox, scale)],
 			blockReferences: [],
 			canvases: [
 				{
@@ -287,8 +347,40 @@ const CLOUDCAD_CONVERT = (function () {
 				]
 			});
 
+			// skyciv.request only logs transport errors - its callback never fires
+			// on a failed connection, which would leave this promise pending and
+			// the caller's request hanging. This makes sure one answer always
+			// comes back.
+			let settled = false;
+			const answer = (result) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				resolve(result);
+			};
+
+			const timer = setTimeout(() => {
+				answer({
+					ok: false,
+					reason: 'timeout',
+					detail: 'The SkyCiv API did not respond within 120 seconds.'
+				});
+			}, 120000);
+
 			skyciv.request(payload, (parsed) => {
-				if (typeof parsed == "string") parsed = JSON.parse(parsed)
+
+				try {
+					if (typeof parsed == "string") parsed = JSON.parse(parsed);
+				} catch (e) {
+					answer({ ok: false, reason: 'bad-response', detail: String(parsed).slice(0, 400) });
+					return;
+				}
+
+				if (!parsed || typeof parsed !== 'object') {
+					answer({ ok: false, reason: 'bad-response', detail: 'The API returned nothing usable.' });
+					return;
+				}
+
 				const envelope = parsed.response || {};
 				const results = Array.isArray(parsed.functions) ? parsed.functions : [];
 				const save = results.length ? results[results.length - 1] : null;
@@ -296,7 +388,7 @@ const CLOUDCAD_CONVERT = (function () {
 				// status 0 is success, anything else puts the reason in msg -
 				// most often that the credentials did not authenticate.
 				if (envelope.status !== 0) {
-					resolve({
+					answer({
 						ok: false,
 						reason: 'api-error',
 						detail: envelope.msg || 'The SkyCiv API rejected the request.'
@@ -307,7 +399,7 @@ const CLOUDCAD_CONVERT = (function () {
 				const url = save && save.data ? save.data : envelope.data;
 
 				if (typeof url === 'string' && url.indexOf('http') === 0) {
-					resolve({
+					answer({
 						ok: true,
 						url: url,
 						public_link: save && save.public_link ? save.public_link : null
@@ -315,7 +407,7 @@ const CLOUDCAD_CONVERT = (function () {
 					return;
 				}
 
-				resolve({
+				answer({
 					ok: false,
 					reason: 'no-link',
 					detail: envelope.msg || 'The drawing saved but no CloudCAD link came back.'

@@ -19,7 +19,7 @@ and fill in what you need:
 
 | Variable | Purpose |
 |---|---|
-| `QUICKDRAW_TEMPLATE_DIR` | Folder scanned for the shared, curated `.dxf` templates. Defaults to the folder holding the project. |
+| `QUICKDRAW_TEMPLATE_DIR` | Folder scanned for the shared, curated `.dxf` templates. Defaults to `shared-templates/` in the project. |
 | `QUICKDRAW_PERSONAL_DIR` | Root folder for per-user personal templates. Defaults to `personal-templates/` in the project. |
 | `SKYCIV_USERNAME` | SkyCiv account email. Used for CloudCAD opening, and identifies the user for **My Templates**. |
 | `SKYCIV_KEY` | SkyCiv API key, from https://platform.skyciv.com/api |
@@ -56,6 +56,36 @@ Two coordinate rules apply on the way into CloudCAD: y is negated, because
 CloudCAD y points down where DXF y points up, and text colour is kept light,
 because the CloudCAD canvas is dark.
 
+### Import behaviour
+
+The conversion mirrors CloudCAD's own DXF import options:
+
+- **Canvas content: replace, never add.** Every hand-off creates a fresh model
+  (`S3D.session.start` -> `cloudcad.model.create` -> `cloudcad.file.save`) and
+  never calls `cloudcad.file.open` first, so there is no existing content in the
+  session to merge with. Saving over the same name/path overwrites it in place -
+  verified against the live API by saving two different drawings to one name and
+  confirming the same file UID came back both times.
+- **Dimensions are not imported.** A DXF dimension can only arrive as dumb lines
+  and text, never as an editable CloudCAD dimension entity, so importing it just
+  leaves clutter to delete before the drawing can be dimensioned properly. Across
+  the sample templates this is 17% of all geometry, and up to 44% in some.
+  Set `QUICKDRAW_IMPORT_DIMENSIONS=1` to include it.
+- **DXF units (source): mm, shift X/Y: 0.** Coordinates pass through 1:1, because
+  CloudCAD stores real mm internally and all the sample templates declare
+  `$INSUNITS = 4` (mm) - `a3-template.dxf` measures exactly 420 x 297, which is
+  A3 in mm. Override with `QUICKDRAW_DXF_UNITS` (mm, cm, m, in, ft) and
+  `QUICKDRAW_SHIFT_X` / `QUICKDRAW_SHIFT_Y`. If a drawing's own declared units
+  disagree with the configured source units, the hand-off says so rather than
+  silently converting at the wrong scale.
+
+The only coordinate change applied is the y flip, which is not a shift: CloudCAD
+y points down where DXF y points up, so `y` is negated to keep the drawing
+upright. An A3 sheet therefore lands at x `0..420`, y `-297..0`.
+
+Previews still render the complete drawing, dimensions included - they show the
+source DXF as it is. The hand-off reports how many items were left out.
+
 ## Supported DXF entities
 
 `LINE`, `LWPOLYLINE`, `POLYLINE`/`VERTEX`, `CIRCLE`, `ARC`, `ELLIPSE`, `SPLINE`,
@@ -74,7 +104,7 @@ The library presents two scopes as one list:
 
 | Scope | Folder | Behaviour |
 |---|---|---|
-| **Shared Library** | `QUICKDRAW_TEMPLATE_DIR` | The curated set everyone sees. Read-only - Quick Draw never writes or deletes a drawing here. |
+| **Shared Library** | `shared-templates/` | The curated set everyone sees, committed with the project. Read-only - Quick Draw never writes or deletes a drawing here, so it can only change by someone committing to it. |
 | **My Templates** | `QUICKDRAW_PERSONAL_DIR/<user>/` | The current user's own drawings. They can add and delete freely. |
 
 The current user is identified by `SKYCIV_USERNAME`, slugified into a folder
@@ -127,6 +157,8 @@ frontend/
   js/editor.js         title/category editing
   js/library.js        sidebar and card grid
   js/app.js            wiring
+shared-templates/      the curated .dxf library, committed with the project
+personal-templates/    per-user drawings, gitignored
 server/
   index.js             entry point
   endpoints.js         route registration

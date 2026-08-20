@@ -152,7 +152,16 @@ const FUNCTIONS = (function () {
 			lines: canvas.lines.length,
 			polylines: canvas.polylines.length,
 			texts: canvas.texts.length,
-			hatches: canvas.hatches.length
+			hatches: canvas.hatches.length,
+			// Reported so a drawing arriving without its dimensions is never a
+			// surprise. The canvas is always replaced, never added to.
+			replaced_canvas: true,
+			dimensions_imported: !!config.dxf_import.dimensions,
+			dimensions_skipped: config.dxf_import.dimensions ? 0 : flat.stats.dimension_primitives,
+			source_units: config.dxf_import.source_units,
+			declared_units: flat.stats.declared_units,
+			shift_x: config.dxf_import.shift_x,
+			shift_y: config.dxf_import.shift_y
 		};
 
 		const published = await cloudcad.publish(cad_data, entry.id);

@@ -40,9 +40,23 @@ QUICKDRAW.settings = (function () {
 		'Uncategorised'
 	];
 
+	// SkyCiv mark, used in the sidebar and on the CloudCAD loading page.
+	const LOGO_URL = 'https://platform.skyciv.com/storage/images/logo-pack/SkyCiv_Logo_IconOnly_256px.png';
+
+	// The CloudCAD canvas colour, reused so previews and the loading page read as
+	// part of the same drawing surface.
+	const CANVAS_COLOUR = '#151d2b';
+
+	// How long to wait before telling the user a big drawing is just slow rather
+	// than stuck.
+	const SLOW_HANDOFF_MS = 8000;
+
 	funcs.apiBase = apiBase;
 	funcs.PREVIEW = PREVIEW;
 	funcs.DEFAULT_CATEGORIES = DEFAULT_CATEGORIES;
+	funcs.LOGO_URL = LOGO_URL;
+	funcs.CANVAS_COLOUR = CANVAS_COLOUR;
+	funcs.SLOW_HANDOFF_MS = SLOW_HANDOFF_MS;
 
 	return funcs;
 

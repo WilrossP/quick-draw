@@ -10,5 +10,8 @@
 		],
 		"description": "Blank A3 sheet with title block.",
 		"favourite": true
+	},
+	"footing-tie-beam": {
+		"favourite": false
 	}
 }

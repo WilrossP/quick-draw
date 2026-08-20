@@ -23,6 +23,13 @@ const DXF_FLATTEN = (function () {
 	const MAX_DEPTH = 12;      // guards against blocks that reference each other
 	const ARC_SEGMENTS = 48;   // tessellation resolution for a full circle
 
+	// $INSUNITS codes, so a drawing that is not in the expected units can be
+	// spotted rather than silently converted at the wrong scale.
+	const INSUNITS = {
+		0: 'unitless', 1: 'in', 2: 'ft', 3: 'mi', 4: 'mm',
+		5: 'cm', 6: 'm', 7: 'km', 8: 'microin', 9: 'mil', 10: 'yd'
+	};
+
 	/* -------------------------------------------------- *
 	 * 2D affine transform: [a, b, c, d, e, f]
 	 * -------------------------------------------------- */
@@ -216,7 +223,10 @@ const DXF_FLATTEN = (function () {
 	 * Entity walking
 	 * -------------------------------------------------- */
 
-	const walk = (entities, doc, matrix, depth, out, inherited_color) => {
+	// `in_dimension` marks everything emitted from inside a DIMENSION's
+	// anonymous block, so a consumer can drop dimension line-work without
+	// needing the drawing parsed a second time.
+	const walk = (entities, doc, matrix, depth, out, inherited_color, in_dimension) => {
 
 		if (depth > MAX_DEPTH) return;
 
@@ -240,11 +250,11 @@ const DXF_FLATTEN = (function () {
 				layer: layer_name
 			};
 
-			emit(ent, doc, matrix, depth, out, meta, aci);
+			emit(ent, doc, matrix, depth, out, meta, aci, in_dimension);
 		}
 	};
 
-	const emit = (ent, doc, matrix, depth, out, meta, aci) => {
+	const emit = (ent, doc, matrix, depth, out, meta, aci, in_dimension) => {
 
 		const T = (p) => apply(matrix, p.x, p.y);
 
@@ -258,6 +268,7 @@ const DXF_FLATTEN = (function () {
 				layer: meta.layer
 			};
 			if (curve) prim.curve = curve;
+			if (in_dimension) prim.dim = true;
 			out.push(prim);
 		};
 
@@ -383,7 +394,7 @@ const DXF_FLATTEN = (function () {
 					{ x: dxf.num(ent, 13, dxf.num(ent, 12, 0)), y: dxf.num(ent, 23, dxf.num(ent, 22, 0)) },
 					{ x: dxf.num(ent, 12, 0), y: dxf.num(ent, 22, 0) }
 				];
-				out.push({ k: 'fill', loops: [corners.map(T)], color: meta.color, layer: meta.layer });
+				out.push({ k: 'fill', loops: [corners.map(T)], color: meta.color, layer: meta.layer, dim: !!in_dimension });
 				break;
 			}
 
@@ -395,7 +406,8 @@ const DXF_FLATTEN = (function () {
 					loops: loops.map((loop) => loop.map(T)),
 					color: meta.color,
 					layer: meta.layer,
-					hatch: true
+					hatch: true,
+					dim: !!in_dimension
 				});
 				break;
 			}
@@ -422,7 +434,8 @@ const DXF_FLATTEN = (function () {
 					text: value,
 					anchor: h_align === 1 ? 'middle' : (h_align === 2 ? 'end' : 'start'),
 					color: meta.color,
-					layer: meta.layer
+					layer: meta.layer,
+					dim: !!in_dimension
 				});
 				break;
 			}
@@ -443,7 +456,8 @@ const DXF_FLATTEN = (function () {
 					text: value,
 					anchor: column === 1 ? 'middle' : (column === 2 ? 'end' : 'start'),
 					color: meta.color,
-					layer: meta.layer
+					layer: meta.layer,
+					dim: !!in_dimension
 				});
 				break;
 			}
@@ -477,7 +491,7 @@ const DXF_FLATTEN = (function () {
 								[sx, 0, 0, sy, -block.base.x * sx, -block.base.y * sy]
 							)
 						);
-						walk(block.entities, doc, multiply(matrix, local), depth + 1, out, aci);
+						walk(block.entities, doc, multiply(matrix, local), depth + 1, out, aci, in_dimension);
 					}
 				}
 				break;
@@ -487,7 +501,10 @@ const DXF_FLATTEN = (function () {
 				// Dimensions render through an anonymous block holding their
 				// lines, arrows and value text, already in world coordinates.
 				const block = doc.blocks[dxf.str(ent, 2, '')];
-				if (block) walk(block.entities, doc, matrix, depth + 1, out, aci);
+				// Tagged as dimension line-work so the CloudCAD converter can drop
+				// it - imported dimensions arrive as dumb geometry, not editable
+				// CloudCAD dimension entities.
+				if (block) walk(block.entities, doc, matrix, depth + 1, out, aci, true);
 				break;
 			}
 
@@ -564,13 +581,17 @@ const DXF_FLATTEN = (function () {
 	 */
 	const run = (doc) => {
 
+		// The units the drawing itself declares, if it declares any.
+		const insunits_raw = doc.header['$INSUNITS'];
+		const insunits_code = insunits_raw ? Object.keys(insunits_raw).map((k) => insunits_raw[k])[0] : undefined;
+
 		// Vertices need stitching inside blocks too, not just at the top level.
 		Object.keys(doc.blocks).forEach((name) => {
 			doc.blocks[name].entities = stitchPolylines(doc.blocks[name].entities);
 		});
 
 		const primitives = [];
-		walk(stitchPolylines(doc.entities), doc, identity(), 0, primitives, null);
+		walk(stitchPolylines(doc.entities), doc, identity(), 0, primitives, null, false);
 
 		let min_x = Infinity;
 		let min_y = Infinity;
@@ -613,7 +634,13 @@ const DXF_FLATTEN = (function () {
 				entities: doc.entities.length,
 				blocks: Object.keys(doc.blocks).length,
 				layers: Object.keys(doc.layers).length,
-				primitives: primitives.length
+				primitives: primitives.length,
+				// How much of the drawing is dimension line-work, which the
+				// CloudCAD conversion leaves out by default.
+				dimension_primitives: primitives.filter((p) => p.dim).length,
+				// What the file says its units are - compared against the
+				// configured source units before converting.
+				declared_units: insunits_code === undefined ? null : (INSUNITS[insunits_code] || null)
 			}
 		};
 	};
