@@ -5,7 +5,7 @@ DXF drawing templates, renders a preview of each one, keeps a title and
 categories against them, and hands any template over to SkyCiv CloudCAD.
 
 ## Running
-
+*npm i (if node modules have not been setup)
 To run frontend run `npm run build`
 To run server run `npm run dev`
 
