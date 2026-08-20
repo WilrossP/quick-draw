@@ -51,15 +51,19 @@ const LIBRARY = (function () {
 	// substring - without that, "template" reads as a steel "plate" and "rc"
 	// turns up inside half the words in the language.
 	const CATEGORY_RULES = [
-		{ match: /(\b(a0|a1|a2|a3|a4)\b|title.?block|sheet|border|template)/i, category: 'Sheet Templates' },
+		{ match: /(\b(a0|a1|a2|a3|a4)\b|\b20x30\b|title.?block|sheet|border|template)/i, category: 'Sheet Templates' },
 		{ match: /(isolated|pad|strip|raft|pile|footing|foundation)/i, category: 'Foundations' },
 		{ match: /(tie.?beam|beam|girder|lintel)/i, category: 'Beams' },
 		{ match: /(column|pier|pedestal)/i, category: 'Columns' },
 		{ match: /(slab|deck|floor)/i, category: 'Slabs' },
 		{ match: /(stair|step|landing)/i, category: 'Stairs' },
 		{ match: /(wall|retaining)/i, category: 'Walls' },
+		{ match: /(roof|truss|purlin|rafter|eave|ridge)/i, category: 'Roof' },
+		{ match: /(steel|\bsection\b|\bshs\b|\buc\b|\bub\b)/i, category: 'Steel' },
 		{ match: /(connection|splice|weld|bolt|baseplate|base.?plate)/i, category: 'Connections' },
-		{ match: /(misc|detail|typical|standard|note)/i, category: 'Details' }
+		// Miscellaneous is also the fallback below, so a drawing that matches
+		// nothing lands here rather than in a category of its own.
+		{ match: /(misc|typical|standard|note)/i, category: 'Miscellaneous' }
 	];
 
 	const MATERIAL_RULES = [
@@ -86,7 +90,7 @@ const LIBRARY = (function () {
 			if (rule.match.test(file) && found.indexOf(rule.category) === -1) found.push(rule.category);
 		});
 		// A drawing with no keyword match still needs somewhere to live.
-		if (!found.length) found.push('Uncategorised');
+		if (!found.length) found.push('Miscellaneous');
 		return found;
 	};
 
@@ -243,7 +247,7 @@ const LIBRARY = (function () {
 				.map((c) => String(c).trim())
 				.filter((c) => c.length)
 				.filter((c, i, arr) => arr.indexOf(c) === i);
-			if (!current.categories.length) current.categories = ['Uncategorised'];
+			if (!current.categories.length) current.categories = ['Miscellaneous'];
 		}
 
 		if (Array.isArray(patch.tags)) {

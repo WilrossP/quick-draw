@@ -141,7 +141,7 @@ QUICKDRAW.library = (function () {
 		// Personal drawings are marked so it is never unclear whether something
 		// is your own work or part of the shared curated set.
 		const owner_badge = is_personal
-			? '<span class="qd-owner-badge"><i class="user outline icon"></i>Mine</span>'
+			? '<span class="qd-owner-badge"><i class="user outline icon"></i>Personal</span>'
 			: '';
 
 		// Only your own drawings can be deleted - the shared library is read-only.

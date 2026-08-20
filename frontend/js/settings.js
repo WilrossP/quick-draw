@@ -35,9 +35,10 @@ QUICKDRAW.settings = (function () {
 		'Slabs',
 		'Stairs',
 		'Walls',
+		'Roof',
+		'Steel',
 		'Connections',
-		'Details',
-		'Uncategorised'
+		'Miscellaneous'
 	];
 
 	// SkyCiv mark, used in the sidebar and on the CloudCAD loading page.
